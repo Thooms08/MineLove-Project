@@ -12,7 +12,7 @@ import 'package:minelove/opening.dart';
 
 void main() {
   testWidgets('App boots to opening screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const MindLoveApp());
+    await tester.pumpWidget(const MineLoveApp());
     expect(find.byType(OpeningScreen), findsOneWidget);
   });
 }

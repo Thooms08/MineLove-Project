@@ -6,22 +6,23 @@ import 'audio_helper.dart';
 import 'theme.dart';
 import 'opening.dart';
 import 'content.dart';
+import 'profile/edit.dart';
 
 void main() {
-  runApp(const MindLoveApp());
+  runApp(const MineLoveApp());
 }
 
-class MindLoveApp extends StatelessWidget {
-  const MindLoveApp({super.key});
+class MineLoveApp extends StatelessWidget {
+  const MineLoveApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mind Love',
+      title: 'Mine Love',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: GoogleFonts.poppins().fontFamily,
-        scaffoldBackgroundColor: MindLoveTheme.deepMidnight,
+        scaffoldBackgroundColor: MineLoveTheme.deepMidnight,
       ),
       home: OpeningScreen(),
     );
@@ -47,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Warm-up audio pool sedini mungkin supaya tap pertama langsung responsif
-    MindLoveAudio.warmUp();
+    MineLoveAudio.warmUp();
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -58,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startBackgroundMusic() async {
-    _bgmPlayer = await MindLoveAudio.playLooping(
+    _bgmPlayer = await MineLoveAudio.playLooping(
       'audio/backsound.mp3',
       volume: 0.45,
     );
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _timer.cancel();
     _bgmPlayer?.dispose();
-    MindLoveAudio.disposePool();
+    MineLoveAudio.disposePool();
     super.dispose();
   }
 
@@ -107,10 +108,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return "$day, ${time.day} $month ${time.year} - $h:$m:$s";
   }
 
+  // FIX: Navigasi ke halaman Edit Profile saat icon profile di navbar ditekan.
+  // SFX click dimainkan agar konsisten dengan interaksi tombol lain di app.
+  void _openProfileEdit() {
+    unawaited(MineLoveAudio.playOneShot('audio/click.mp3', volume: 0.9));
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: MindLoveTheme.deepMidnight,
+      backgroundColor: MineLoveTheme.deepMidnight,
       body: SafeArea(
         child: Container(
           decoration: const BoxDecoration(
@@ -133,12 +143,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         vertical: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: MindLoveTheme.surface.withValues(alpha: 0.88),
+                        color: MineLoveTheme.surface.withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.08),
                         ),
-                        boxShadow: MindLoveTheme.blueGlow,
+                        boxShadow: MineLoveTheme.blueGlow,
                       ),
                       child: Row(
                         children: [
@@ -147,9 +157,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 54,
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              gradient: MindLoveTheme.primaryGradient,
+                              gradient: MineLoveTheme.primaryGradient,
                               borderRadius: BorderRadius.circular(18),
-                              boxShadow: MindLoveTheme.redGlow,
+                              boxShadow: MineLoveTheme.redGlow,
                             ),
                             child: Image.asset('assets/logo/logo.png'),
                           ),
@@ -160,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Mind Love',
+                                  'Mine Love',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,
@@ -179,12 +189,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 vertical: 10,
                               ),
                               decoration: BoxDecoration(
-                                color: MindLoveTheme.secondaryDark.withValues(
+                                color: MineLoveTheme.secondaryDark.withValues(
                                   alpha: 0.9,
                                 ),
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                  color: MindLoveTheme.neonBlue.withValues(
+                                  color: MineLoveTheme.neonBlue.withValues(
                                     alpha: 0.18,
                                   ),
                                 ),
@@ -195,11 +205,38 @@ class _HomeScreenState extends State<HomeScreen> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: MindLoveTheme.glowBlue,
+                                  color: MineLoveTheme.glowBlue,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   height: 1.25,
                                 ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // ── FIX: Icon profile di navbar ──────────────
+                          // Tap untuk membuka halaman Edit Profile.
+                          GestureDetector(
+                            onTap: _openProfileEdit,
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: MineLoveTheme.secondaryDark.withValues(
+                                  alpha: 0.9,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: MineLoveTheme.neonBlue.withValues(
+                                    alpha: 0.18,
+                                  ),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                color: MineLoveTheme.glowBlue,
+                                size: 22,
                               ),
                             ),
                           ),

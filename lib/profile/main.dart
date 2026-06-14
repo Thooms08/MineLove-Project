@@ -34,7 +34,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   // Fungsi muterin suara pas pertama kali buka Setup Profile
   void _playWelcomeSound() async {
     unawaited(
-      MindLoveAudio.playOneShot('audio/setup-profile.mp3', volume: 1.0),
+      MineLoveAudio.playOneShot('audio/setup-profile.mp3', volume: 1.0),
     );
   }
 
@@ -44,7 +44,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Future<void> _pickImage(bool isPartner) async {
-    unawaited(MindLoveAudio.playOneShot('audio/click.mp3', volume: 0.9));
+    unawaited(MineLoveAudio.playOneShot('audio/click.mp3', volume: 0.9));
     final pickedFile = await ImagePicker().pickImage(
       source: ImageSource.gallery,
     );
@@ -60,7 +60,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   void _saveProfile() async {
-    unawaited(MindLoveAudio.playOneShot('audio/click.mp3', volume: 0.9));
+    unawaited(MineLoveAudio.playOneShot('audio/click.mp3', volume: 0.9));
 
     // Validasi kalau nama kosong gak bisa disimpen
     if (_partnerNameCtrl.text.isEmpty || _userNameCtrl.text.isEmpty) {
@@ -81,7 +81,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     await prefs.setBool('has_profile', true);
 
     unawaited(
-      MindLoveAudio.playOneShot('audio/success-alert.mp3', volume: 1.0),
+      MineLoveAudio.playOneShot('audio/success-alert.mp3', volume: 1.0),
     );
     _showSuccessAlert();
   }
@@ -104,7 +104,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             child: const Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.favorite, color: MindLoveTheme.loveRed, size: 50),
+                Icon(Icons.favorite, color: MineLoveTheme.loveRed, size: 50),
                 SizedBox(height: 16),
                 Text(
                   "Berhasil Disimpan!",
@@ -163,12 +163,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             height: 100,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: MindLoveTheme.neonBlue, width: 2),
-              boxShadow: MindLoveTheme.redGlow,
+              border: Border.all(color: MineLoveTheme.neonBlue, width: 2),
+              boxShadow: MineLoveTheme.redGlow,
               image: image != null
                   ? DecorationImage(image: FileImage(image), fit: BoxFit.cover)
                   : null,
-              color: MindLoveTheme.surface,
+              color: MineLoveTheme.surface,
             ),
             child: image == null
                 ? const Icon(Icons.add_a_photo, color: Colors.white54)
@@ -187,7 +187,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               borderSide: BorderSide(color: Colors.white24),
             ),
             focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: MindLoveTheme.loveRed),
+              borderSide: BorderSide(color: MineLoveTheme.loveRed),
             ),
           ),
         ),
@@ -198,7 +198,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: MindLoveTheme.deepMidnight,
+      backgroundColor: MineLoveTheme.deepMidnight,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -243,9 +243,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    gradient: MindLoveTheme.primaryGradient,
+                    gradient: MineLoveTheme.primaryGradient,
                     borderRadius: BorderRadius.circular(999),
-                    boxShadow: MindLoveTheme.redGlow,
+                    boxShadow: MineLoveTheme.redGlow,
                   ),
                   child: const Center(
                     child: Text(

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'package:audioplayers/audioplayers.dart';
 
-class MindLoveAudio {
+class MineLoveAudio {
   // Pool ukuran 6 — cukup untuk tap cepat + milestone sound sekaligus
   static const int _poolSize = 6;
   static final Queue<AudioPlayer> _pool = Queue();

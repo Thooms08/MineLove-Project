@@ -68,7 +68,7 @@ class _OpeningScreenState extends State<OpeningScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: MindLoveTheme.deepMidnight,
+      backgroundColor: MineLoveTheme.deepMidnight,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -89,7 +89,7 @@ class _OpeningScreenState extends State<OpeningScreen>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      MindLoveTheme.loveRed.withValues(alpha: 0.18),
+                      MineLoveTheme.loveRed.withValues(alpha: 0.18),
                       Colors.transparent,
                     ],
                   ),
@@ -106,7 +106,7 @@ class _OpeningScreenState extends State<OpeningScreen>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      MindLoveTheme.neonBlue.withValues(alpha: 0.16),
+                      MineLoveTheme.neonBlue.withValues(alpha: 0.16),
                       Colors.transparent,
                     ],
                   ),
@@ -123,12 +123,12 @@ class _OpeningScreenState extends State<OpeningScreen>
                       width: 220,
                       padding: const EdgeInsets.all(26),
                       decoration: BoxDecoration(
-                        color: MindLoveTheme.surface.withValues(alpha: 0.62),
+                        color: MineLoveTheme.surface.withValues(alpha: 0.62),
                         borderRadius: BorderRadius.circular(36),
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.08),
                         ),
-                        boxShadow: MindLoveTheme.redGlow,
+                        boxShadow: MineLoveTheme.redGlow,
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -139,14 +139,14 @@ class _OpeningScreenState extends State<OpeningScreen>
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: MindLoveTheme.primaryGradient,
-                              boxShadow: MindLoveTheme.redGlow,
+                              gradient: MineLoveTheme.primaryGradient,
+                              boxShadow: MineLoveTheme.redGlow,
                             ),
                             child: Image.asset('assets/logo/logo.png'),
                           ),
                           const SizedBox(height: 18),
                           const Text(
-                            'Mind Love',
+                            'Mine Love',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -158,7 +158,7 @@ class _OpeningScreenState extends State<OpeningScreen>
                             'Romantic futuristic love space',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: MindLoveTheme.secondaryText,
+                              color: MineLoveTheme.secondaryText,
                               fontSize: 12,
                               height: 1.4,
                             ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class MindLoveTheme {
+class MineLoveTheme {
   // Colors
   static const Color deepMidnight = Color(0xFF090B14);
   static const Color secondaryDark = Color(0xFF101624);
