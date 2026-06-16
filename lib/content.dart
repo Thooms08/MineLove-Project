@@ -4,7 +4,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
-import 'love_sound_manager.dart'; // FIX: Menggunakan Sound Manager baru hasil kustomisasi khusus
+import 'love_sound_manager.dart';
+import 'tap_sound.dart'; // FIX: Mengimport file tap_sound baru
+import 'success_sound.dart'; // FIX: Mengimport file success_sound baru
 
 class ContentScreen extends StatefulWidget {
   const ContentScreen({super.key});
@@ -29,18 +31,43 @@ class _ContentScreenState extends State<ContentScreen>
   final List<String> _emojis = ['❤️', '💖', '🥰', '😍', '✨', '💕', '💘'];
   final Random _random = Random();
 
+  // ── Animasi Progress Card ──────────────────────────────────────────────
+  // _pulsCtrl : efek denyut (scale) saat naik milestone
+  // _glowCtrl : animasi glow border berputar terus (looping)
+  late AnimationController _pulseCtrl;
+  late AnimationController _glowCtrl;
+  late Animation<double> _pulseAnim;
+  late Animation<double> _glowAnim;
+
   @override
   void initState() {
     super.initState();
-    // FIX: Menginisialisasi engine audio baru yang mengunci resource ke memori sejak awal
     LoveSoundManager.initialize();
     _loadData();
+
+    // Pulse: denyut singkat saat milestone, scale 1.0 → 1.025 → 1.0
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+    _pulseAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.025), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.025, end: 1.0), weight: 60),
+    ]).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+
+    // Glow rotate: animasi shimmer border berputar terus menerus
+    _glowCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+    _glowAnim = Tween<double>(begin: 0.0, end: 1.0).animate(_glowCtrl);
   }
 
   @override
   void dispose() {
-    // FIX: Bersihkan seluruh pool audio agar tidak terjadi kebocoran memori (memory leak)
     LoveSoundManager.dispose();
+    _pulseCtrl.dispose();
+    _glowCtrl.dispose();
     super.dispose();
   }
 
@@ -60,10 +87,10 @@ class _ContentScreenState extends State<ContentScreen>
     if (_clicks >= _maxClicks) return;
 
     // ─────────────────────────────────────────────────────────────────
-    // FIX: Jalankan sfx tap secara instan lewat sistem Round-Robin.
-    // Tanpa antrean, tanpa await, suara langsung keluar di milidetik yang sama!
+    // FIX: Menggunakan TapSound agar suara terpicu secara instan melalui pool
+    // tanpa antrean dan mendukung overlapping (tumpukan suara realtime)
     // ─────────────────────────────────────────────────────────────────
-    LoveSoundManager.playTapSound();
+    TapSound.play();
 
     final int newClicks = _clicks + 1;
 
@@ -74,20 +101,17 @@ class _ContentScreenState extends State<ContentScreen>
     // Simpan progres ke local storage secara async background
     unawaited(_saveClicks(newClicks));
 
-    // Setiap kelipatan 100 → Mainkan Milestone Level + Success Alert secara serentak
+    // ─────────────────────────────────────────────────────────────────
+    // FIX: Menggunakan SuccessSound untuk memproses milestone kelipatan 100
+    // secara bersamaan/simultan tanpa memotong suara tap utama
+    // ─────────────────────────────────────────────────────────────────
+    SuccessSound.handleMilestone(newClicks);
+
+    // Setiap kelipatan 100 → Efek visual ledakan partikel
     if (newClicks % 100 == 0) {
-      final int level = newClicks ~/ 100;
-      
-      // 1. Putar suara level (1.mp3, 2.mp3, dst) lewat player terisolasi khusus level
-      if (level <= 15) {
-        LoveSoundManager.playMilestoneLevel(level);
-      }
-      
-      // 2. Putar suara success-alert.mp3 secara serentak lewat player terisolasi khusus alert
-      LoveSoundManager.playSuccessAlert();
-      
-      // 3. Efek visual ledakan partikel
       _triggerParticleEffect();
+      // Trigger denyut pada progress card
+      _pulseCtrl.forward(from: 0.0);
     }
   }
 
@@ -130,18 +154,110 @@ class _ContentScreenState extends State<ContentScreen>
       return Color.lerp(Colors.black, Colors.grey, p / 0.25)!;
     }
     if (p <= 0.50) {
-      return Color.lerp(Colors.grey, MineLoveTheme.softPink, (p - 0.25) / 0.25)!;
+      return Color.lerp(
+        Colors.grey,
+        MineLoveTheme.softPink,
+        (p - 0.25) / 0.25,
+      )!;
     }
     if (p <= 0.75) {
-      return Color.lerp(MineLoveTheme.softPink, const Color(0xFF8B0000), (p - 0.50) / 0.25)!;
+      return Color.lerp(
+        MineLoveTheme.softPink,
+        const Color(0xFF8B0000),
+        (p - 0.50) / 0.25,
+      )!;
     }
-    return Color.lerp(const Color(0xFF8B0000), MineLoveTheme.loveRed, (p - 0.75) / 0.25)!;
+    return Color.lerp(
+      const Color(0xFF8B0000),
+      MineLoveTheme.loveRed,
+      (p - 0.75) / 0.25,
+    )!;
   }
 
   double _getLoveSize(double orbSize) =>
       (orbSize * 0.21) + ((_clicks / _maxClicks) * (orbSize * 0.64));
 
-  Widget _buildAvatar(String path, String name, String label, double avatarSize) {
+  // ── Warna milestone progress card (berubah tiap 100 tap) ──────────────
+  // Level 0   (0–99)    : biru muda (starting)
+  // Level 1   (100–199) : ungu lembut
+  // Level 2   (200–299) : teal / cyan
+  // Level 3   (300–399) : hijau zamrud
+  // Level 4   (400–499) : kuning keemasan
+  // Level 5   (500–599) : oranye
+  // Level 6   (600–699) : merah muda terang
+  // Level 7–9 (700–999) : merah cinta makin terang
+  // Level 10+ (1000–)   : merah membara + efek paling intens
+  static const List<List<Color>> _milestoneGradients = [
+    [Color(0xFF4A90D9), Color(0xFF6EA8FF)], // 0   – ice blue
+    [Color(0xFF9B59B6), Color(0xFFD89CFF)], // 100 – violet
+    [Color(0xFF00BCD4), Color(0xFF80DEEA)], // 200 – cyan
+    [Color(0xFF27AE60), Color(0xFF6FCF97)], // 300 – emerald
+    [Color(0xFFF1C40F), Color(0xFFFFE082)], // 400 – gold
+    [Color(0xFFE67E22), Color(0xFFFFAB76)], // 500 – amber
+    [Color(0xFFE91E8C), Color(0xFFFF6EC7)], // 600 – hot pink
+    [Color(0xFFFF2D55), Color(0xFFFF6B8A)], // 700 – love red
+    [Color(0xFFFF1744), Color(0xFFFF616F)], // 800 – deep red
+    [Color(0xFFD50000), Color(0xFFFF4D4D)], // 900 – crimson
+    [Color(0xFFB71C1C), Color(0xFFFF6D00)], // 1000 – ember
+    [Color(0xFFFF6D00), Color(0xFFFFAB00)], // 1100 – fire
+    [Color(0xFFFFAB00), Color(0xFFFFD740)], // 1200 – gold fire
+    [Color(0xFFFF4081), Color(0xFFFF80AB)], // 1300 – deep pink
+    [Color(0xFFFF1744), Color(0xFFFF4D6D)], // 1400 – finale red
+    [Color(0xFFFF4D6D), Color(0xFFFFAB91)], // 1500 – max love
+  ];
+
+  // Intensitas glow shadow makin besar seiring level
+  List<BoxShadow> _getProgressCardGlow(int level, List<Color> grad) {
+    final double intensity = 0.18 + (level / 15) * 0.55;
+    final double spread = (level / 15) * 3.0;
+    final double blur = 18 + (level / 15) * 26;
+    return [
+      BoxShadow(
+        color: grad[0].withValues(alpha: intensity),
+        blurRadius: blur,
+        spreadRadius: spread,
+      ),
+      BoxShadow(
+        color: grad[1].withValues(alpha: intensity * 0.6),
+        blurRadius: blur * 1.4,
+        spreadRadius: spread * 0.5,
+      ),
+    ];
+  }
+
+  // Ketebalan border makin tebal seiring level
+  double _getProgressBorderWidth(int level) => 1.2 + (level / 15) * 1.6;
+
+  // Label milestone yang muncul di header card
+  String _getMilestoneLabel(int level) {
+    const labels = [
+      '',
+      'First Love ❤️',
+      'Growing 💕',
+      'Blooming 🌸',
+      'Sparkling ✨',
+      'Burning 🔥',
+      'Glowing 💫',
+      'Passionate 💘',
+      'Intense 💞',
+      'Devoted 🥰',
+      'Eternal 💖',
+      'Blazing 🔥',
+      'Golden 🌟',
+      'Supreme 💎',
+      'Ultimate 👑',
+      'MAX LOVE ❤️‍🔥',
+    ];
+    if (level <= 0) return '';
+    return level < labels.length ? labels[level] : labels.last;
+  }
+
+  Widget _buildAvatar(
+    String path,
+    String name,
+    String label,
+    double avatarSize,
+  ) {
     final double radius = avatarSize * 0.28;
     final double iconSize = avatarSize * 0.41;
 
@@ -235,11 +351,16 @@ class _ContentScreenState extends State<ContentScreen>
 
   Widget _buildLoveButton() {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
+      // ─────────────────────────────────────────────────────────────────
+      // FIX UTAMA: Pindahkan pemicu klik dari onTapUp ke onTapDown!
+      // Pada clicker game berkecepatan tinggi, mendeteksi sentuhan awal (onTapDown)
+      // menghilangkan delay fisik angkat jari, menghasilkan respon suara yang SUPER REALTIME.
+      // ─────────────────────────────────────────────────────────────────
+      onTapDown: (_) {
+        setState(() => _isPressed = true);
         _handleLoveClick();
       },
+      onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
         duration: const Duration(milliseconds: 120),
@@ -272,53 +393,161 @@ class _ContentScreenState extends State<ContentScreen>
   }
 
   Widget _buildProgressCard() {
-    final progress = _clicks / _maxClicks;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: MineLoveTheme.surfaceElevated.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: MineLoveTheme.softGlow,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Love Progress',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+    final double progress = _clicks / _maxClicks;
+    final int level = (_clicks ~/ 100).clamp(0, _milestoneGradients.length - 1);
+    final List<Color> grad = _milestoneGradients[level];
+    final List<BoxShadow> glow = _getProgressCardGlow(level, grad);
+    final double borderWidth = _getProgressBorderWidth(level);
+    final String milestoneLabel = _getMilestoneLabel(level);
+
+    // Warna progress bar juga ikut gradient milestone
+    final Color barColor = Color.lerp(grad[0], grad[1], 0.5)!;
+
+    return ScaleTransition(
+      scale: _pulseAnim,
+      child: AnimatedBuilder(
+        animation: _glowAnim,
+        builder: (context, child) {
+          // Border gradient berputar — shimmer effect
+          final double angle = _glowAnim.value * 2 * 3.14159;
+          return Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              // Outer glow shadow makin intens per level
+              boxShadow: glow,
+              // Gradient border tipis berputar sebagai shimmer
+              gradient: LinearGradient(
+                begin: Alignment(
+                  -1.0 + 2.0 * (0.5 + 0.5 * _glowAnim.value),
+                  -1.0 + 2.0 * (0.5 - 0.5 * _glowAnim.value),
                 ),
+                end: Alignment(
+                  1.0 - 2.0 * (0.5 + 0.5 * _glowAnim.value) + 1,
+                  1.0 + 2.0 * (0.5 - 0.5 * _glowAnim.value),
+                ),
+                colors: level == 0
+                    ? [
+                        Colors.white.withValues(alpha: 0.06),
+                        Colors.white.withValues(alpha: 0.03),
+                      ]
+                    : [
+                        grad[0].withValues(alpha: 0.7 + 0.3 * (level / 15)),
+                        grad[1].withValues(alpha: 0.35),
+                        grad[0].withValues(alpha: 0.5 + 0.3 * (level / 15)),
+                      ],
+                stops: level == 0 ? null : const [0.0, 0.5, 1.0],
+                transform: GradientRotation(angle),
               ),
-              Text(
-                '$_clicks / $_maxClicks',
-                style: const TextStyle(
-                  color: MineLoveTheme.glowBlue,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+            ),
+            padding: EdgeInsets.all(borderWidth),
+            child: child,
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: MineLoveTheme.surfaceElevated.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(24 - 2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Love Progress',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  // Milestone label muncul mulai level 1
+                  if (milestoneLabel.isNotEmpty)
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.4),
+                            end: Offset.zero,
+                          ).animate(anim),
+                          child: child,
+                        ),
+                      ),
+                      child: Text(
+                        milestoneLabel,
+                        key: ValueKey(level),
+                        style: TextStyle(
+                          color: grad[1],
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  // Counter dengan warna sesuai level
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 300),
+                    style: TextStyle(
+                      color: level == 0 ? MineLoveTheme.glowBlue : grad[1],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    child: Text('$_clicks / $_maxClicks'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              // Progress bar dengan warna dan animasi sesuai level
+              Stack(
+                children: [
+                  // Track background
+                  Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  // Fill bar dengan gradient warna milestone
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      gradient: LinearGradient(
+                        colors: level == 0
+                            ? [MineLoveTheme.loveRed, MineLoveTheme.softPink]
+                            : [grad[0], grad[1]],
+                      ),
+                      boxShadow: level > 0
+                          ? [
+                              BoxShadow(
+                                color: barColor.withValues(alpha: 0.55),
+                                blurRadius: 8,
+                                spreadRadius: 0,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    // FractionallySizedBox tidak bisa langsung, pakai LayoutBuilder
+                    child: LayoutBuilder(
+                      builder: (ctx, bc) =>
+                          SizedBox(width: bc.maxWidth * progress),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              minHeight: 10,
-              value: progress,
-              backgroundColor: Colors.white.withValues(alpha: 0.06),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                MineLoveTheme.loveRed,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -368,20 +597,36 @@ class _ContentScreenState extends State<ContentScreen>
                       LayoutBuilder(
                         builder: (context, rowConstraints) {
                           final double maxW = rowConstraints.maxWidth;
-                          final double orbSize = (maxW * 0.28).clamp(100.0, 140.0);
+                          final double orbSize = (maxW * 0.28).clamp(
+                            100.0,
+                            140.0,
+                          );
                           const double gap = 14.0;
                           final double remaining = maxW - orbSize - (gap * 2);
-                          final double avatarSize = (remaining / 2).clamp(64.0, 110.0);
+                          final double avatarSize = (remaining / 2).clamp(
+                            64.0,
+                            110.0,
+                          );
 
                           return Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _buildAvatar(_partnerImagePath, _partnerName, 'Partner', avatarSize),
+                              _buildAvatar(
+                                _partnerImagePath,
+                                _partnerName,
+                                'Partner',
+                                avatarSize,
+                              ),
                               const SizedBox(width: gap),
                               _buildLoveOrb(orbSize),
                               const SizedBox(width: gap),
-                              _buildAvatar(_userImagePath, _userName, 'You', avatarSize),
+                              _buildAvatar(
+                                _userImagePath,
+                                _userName,
+                                'You',
+                                avatarSize,
+                              ),
                             ],
                           );
                         },
@@ -467,9 +712,10 @@ class _EmojiParticleState extends State<_EmojiParticle>
       vsync: this,
       duration: Duration(milliseconds: widget.durationMs),
     );
-    _fly = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
+    _fly = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     _fade = Tween<double>(begin: 1, end: 0).animate(
       CurvedAnimation(
         parent: _ctrl,
